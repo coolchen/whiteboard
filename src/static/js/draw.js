@@ -235,21 +235,21 @@ function onMouseDown(event) {
   }
 
   mouseTimer = 0;
-  mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
-    mouseTimer++;
-    if (mouseTimer > 3) {
-      mouseTimer = 0;
-      clearInterval(mouseHeld);
-      var picker = $('#mycolorpicker');
-      picker.toggle(); // show the color picker
-      if (picker.is(':visible')) {
-        // Mad hackery to get round issues with event.point
-        var targetPos = $(event.event.target).position();
-        var point = event.point + new Point(targetPos.left, targetPos.top);
-        positionPickerInCanvas(point);
-      }
-    }
-  }, 100);
+  // mouseHeld = setInterval(function() { // is the mouse being held and not dragged?
+  //   mouseTimer++;
+  //   if (mouseTimer > 3) {
+  //     mouseTimer = 0;
+  //     clearInterval(mouseHeld);
+  //     var picker = $('#mycolorpicker');
+  //     picker.toggle(); // show the color picker
+  //     if (picker.is(':visible')) {
+  //       // Mad hackery to get round issues with event.point
+  //       var targetPos = $(event.event.target).position();
+  //       var point = event.point + new Point(targetPos.left, targetPos.top);
+  //       positionPickerInCanvas(point);
+  //     }
+  //   }
+  // }, 100);
 
   if (activeTool == "draw" || activeTool == "pencil") {
     var point = event.point;
@@ -304,6 +304,26 @@ function onMouseDrag(event) {
 
   if (activeTool == "draw" || activeTool == "pencil") {
     var step = event.delta / 2;
+    // var stepEvent = event.delta / 2;
+    // var step = {
+    //   x: stepEvent.x,
+    //   y: stepEvent.y,
+    //   angle: stepEvent.angle
+    // };
+
+    console.log("delta is: " + step);
+    // if(stepEvent.x > 10) {
+    //   step.x = 2;
+    // } else if(stepEvent.x < 2) {
+    //   step.x = 10;
+    // } else {
+    //   step.x = 10 - stepEvent.x;
+    // }
+
+    // if(stepEvent.y > 10) {
+    //   step.y = 2;
+    // } else (stepEvent.y)
+
     step.angle += 90;
     if (activeTool == "draw") {
       var top = event.middlePoint + step;
@@ -324,18 +344,18 @@ function onMouseDrag(event) {
     });
 
     // Send paths every 100ms
-    if (!timer_is_active) {
+    // if (!timer_is_active) {
 
-      send_paths_timer = setInterval(function() {
+    //   send_paths_timer = setInterval(function() {
 
-        socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
-        path_to_send.path = new Array();
+    //     socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
+    //     path_to_send.path = new Array();
 
-      }, 100);
+    //   }, 100);
 
-    }
+    // }
 
-    timer_is_active = true;
+    // timer_is_active = true;
   } else if (activeTool == "select") {
     // Move item locally
     for (x in paper.project.selectedItems) {
@@ -371,6 +391,86 @@ function onMouseDrag(event) {
 
 }
 
+function saveDigitalImg() {
+  console.debug(path_to_send.path.length);
+  var path1 = path_to_send.path;
+  var xLT = path_to_send.start.x;
+  var xRB = path_to_send.start.x;
+  var yLT = path_to_send.start.y; 
+  var yRB = path_to_send.start.y;
+  
+  path1.forEach(function(p) {
+    if(p.top.x < xLT) {
+      xLT = p.top.x;
+    }
+    if(p.bottom.x > xRB) {
+      xRB = p.bottom.x;
+    }
+    if(p.top.y < yLT) {
+      yLT = p.top.y;
+    }
+    if(p.bottom.y > yRB) {
+      yRB = p.bottom.y;
+    }
+  }, this);
+
+  var w = xRB - xLT;
+  var h = yRB - yLT;
+  var x = xLT;
+  var y = yLT;
+
+  var newCanvas = document.createElement('canvas');
+  newCanvas.width = w;
+  newCanvas.height = h;
+
+  var oldCanvas = document.getElementById('myCanvas');
+
+  var newContext = newCanvas.getContext('2d');
+  newContext.drawImage(oldCanvas, x, y, w, h, 0, 0, w, h);
+
+debugger;
+
+  var img = newContext.getImageData(0, 0, w, h);
+  console.log(img);
+
+  var red = img.data[0];
+  console.log(red);
+
+  // $.post("172.21.98.121:8888/image", {image: JSON.stringify(red)}, function(result){
+  //       $("span").html(result);
+  //   });
+
+  $.ajax({
+    type: 'POST',
+    url: 'http://172.21.98.121:8888/image',
+    crossDomain: true,
+    data: '{"some":"json"}',
+    dataType: 'json',
+    success: function(responseData, textStatus, jqXHR) {
+        var value = responseData.someKey;
+    },
+    error: function (responseData, textStatus, errorThrown) {
+        alert('POST failed.');
+    }
+  });
+  
+  var html = "<img src='" + newCanvas.toDataURL('image/png') + "' />"
+  // if ($.browser.msie) {
+  //   window.winpng = window.open('/static/html/export.html');
+  //   window.winpng.document.write(html);
+  //   window.winpng.document.body.style.margin = 0;
+  // } else {
+  //   window.winpng = window.open();
+  //   window.winpng.document.write(html);
+  //   window.winpng.document.body.style.margin = 0;
+  // }
+
+  path.remove();
+  view.draw();
+
+  console.log(xLT, yLT, xRB, yRB);
+}
+
 
 function onMouseUp(event) {
 
@@ -389,13 +489,19 @@ function onMouseUp(event) {
 
     // Send the path to other users
     path_to_send.end = event.point;
+
+    // save the part of canvas that user just drawed
+    saveDigitalImg();
+
+    console.log(path_to_send.path);
+
     // This covers the case where paths are created in less than 100 seconds
     // it does add a duplicate segment, but that is okay for now.
     socket.emit('draw:progress', room, uid, JSON.stringify(path_to_send));
     socket.emit('draw:end', room, uid, JSON.stringify(path_to_send));
 
     // Stop new path data being added & sent
-    clearInterval(send_paths_timer);
+    // clearInterval(send_paths_timer);
     path_to_send.path = new Array();
     timer_is_active = false;
   } else if (activeTool == "select") {
