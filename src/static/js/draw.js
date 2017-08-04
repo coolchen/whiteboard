@@ -258,7 +258,7 @@ function onMouseDown(event) {
       path.fillColor = active_color_rgb;
     } else if (activeTool == "pencil") {
       path.strokeColor = active_color_rgb;
-      path.strokeWidth = 2;
+      path.strokeWidth = 16;
     }
     path.add(event.point);
     path.name = uid + ":" + (++paper_object_count);
@@ -412,7 +412,25 @@ function saveDigitalImg() {
     if(p.bottom.y > yRB) {
       yRB = p.bottom.y;
     }
+
+    if(p.bottom.x < xLT) {
+      xLT = p.bottom.x;
+    }
+    if(p.top.x > xRB) {
+      xRB = p.top.x;
+    }
+    if(p.bottom.y < yLT) {
+      yLT = p.bottom.y;
+    }
+    if(p.top.y > yRB) {
+      yRB = p.top.y;
+    }
   }, this);
+
+  xLT = xLT - 35;
+  xRB = xRB + 35;
+  yLT = yLT - 35;
+  yRB = yRB + 35;
 
   var w = xRB - xLT;
   var h = yRB - yLT;
@@ -444,10 +462,16 @@ debugger;
     type: 'POST',
     url: 'http://172.21.98.121:8888/image',
     crossDomain: true,
-    data: '{"some":"json"}',
+    data: {image: JSON.stringify(img), width: img.width, height: img.height},
     dataType: 'json',
     success: function(responseData, textStatus, jqXHR) {
-        var value = responseData.someKey;
+        //var value = responseData.someKey;
+        var text = new PointText(new Point(xLT, yRB));
+        text.fillColor = 'black';
+        text.fontSize = w + 'px';
+        // Set the content of the text item:
+        text.content = responseData;
+        view.draw();
     },
     error: function (responseData, textStatus, errorThrown) {
         alert('POST failed.');
